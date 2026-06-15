@@ -55,7 +55,7 @@ const generateInventorySummaryReport = async (req, res, next) => {
         SUM(CASE WHEN i.quantity_in_stock <= i.min_stock_level THEN 1 ELSE 0 END) as lowStockCount
       FROM inventory_items i
       JOIN categories c ON i.category_id = c.id
-      WHERE i.deletedAt IS NULL 
+      WHERE i."deletedAt" IS NULL 
       AND i.is_active = true
       ${categoryId ? "AND c.id = :categoryId" : ""}
       GROUP BY c.id, c.name
@@ -79,7 +79,7 @@ const generateInventorySummaryReport = async (req, res, next) => {
         END as stockLevel,
         COUNT(*) as count
       FROM inventory_items
-      WHERE deletedAt IS NULL AND is_active = true
+      WHERE "deletedAt" IS NULL AND is_active = true
       ${categoryId ? "AND category_id = :categoryId" : ""}
       GROUP BY stockLevel
     `,
@@ -252,7 +252,7 @@ const generateItemDeploymentReport = async (req, res, next) => {
     // Check deployments within date range using raw SQL
     const rawDateCheck = await sequelize.query(
       `SELECT COUNT(*) as count FROM deployments 
-       WHERE deletedAt IS NULL 
+       WHERE "deletedAt" IS NULL 
        AND deployment_date BETWEEN :startDate AND :endDate`,
       {
         replacements: {
@@ -271,7 +271,7 @@ const generateItemDeploymentReport = async (req, res, next) => {
         MAX(deployment_date) as latest,
         COUNT(*) as total
        FROM deployments 
-       WHERE deletedAt IS NULL`,
+       WHERE "deletedAt" IS NULL`,
       {
         type: sequelize.QueryTypes.SELECT,
       }
@@ -345,7 +345,7 @@ const generateItemDeploymentReport = async (req, res, next) => {
         COUNT(*) as count,
         SUM(quantity_deployed) as totalQuantity
       FROM deployments
-      WHERE deletedAt IS NULL
+      WHERE "deletedAt" IS NULL
       AND deployment_date BETWEEN :startDate AND :endDate
       ${location ? "AND deployment_location LIKE :location" : ""}
       ${deploymentType ? "AND deployment_type = :deploymentType" : ""}
@@ -375,7 +375,7 @@ const generateItemDeploymentReport = async (req, res, next) => {
         COUNT(*) as deploymentCount,
         SUM(quantity_deployed) as totalQuantity
       FROM deployments
-      WHERE deletedAt IS NULL
+      WHERE "deletedAt" IS NULL
       AND deployment_date BETWEEN :startDate AND :endDate
       ${location ? "AND deployment_location LIKE :location" : ""}
       ${deploymentType ? "AND deployment_type = :deploymentType" : ""}
@@ -410,7 +410,7 @@ const generateItemDeploymentReport = async (req, res, next) => {
       FROM deployments d
       INNER JOIN inventory_items i ON d.inventory_item_id = i.id
       LEFT JOIN categories c ON i.category_id = c.id
-      WHERE d.deletedAt IS NULL
+      WHERE d."deletedAt" IS NULL
       AND d.deployment_date BETWEEN :startDate AND :endDate
       ${location ? "AND d.deployment_location LIKE :location" : ""}
       ${deploymentType ? "AND d.deployment_type = :deploymentType" : ""}
@@ -542,21 +542,21 @@ const generateBatchAdditionsReport = async (req, res, next) => {
     const batchStats = await sequelize.query(
       `
       SELECT 
-        DATE(b.createdAt) as addedDate,
+        DATE(b."createdAt") as addedDate,
         COUNT(*) as batchCount,
         SUM(b.quantity) as totalQuantity,
         SUM(b.unit_price * b.quantity) as totalValue
       FROM batches b
       JOIN inventory_items i ON b.inventory_item_id = i.id
-      WHERE b.deletedAt IS NULL 
+      WHERE b."deletedAt" IS NULL 
       AND b.is_active = true
       ${
         startDate && endDate
-          ? "AND b.createdAt BETWEEN :startDate AND :endDate"
+          ? 'AND b."createdAt" BETWEEN :startDate AND :endDate'
           : ""
       }
       ${categoryId ? "AND i.category_id = :categoryId" : ""}
-      GROUP BY DATE(b.createdAt)
+      GROUP BY DATE(b."createdAt")
       ORDER BY addedDate DESC
     `,
       {
@@ -632,19 +632,19 @@ export const debugStockMovement = async (req, res, next) => {
     console.log("📊 Step 2: Checking soft-delete status...");
 
     const [nonDeletedDeployments] = await sequelize.query(
-      `SELECT COUNT(*) as count FROM deployments WHERE deletedAt IS NULL`,
+      `SELECT COUNT(*) as count FROM deployments WHERE "deletedAt" IS NULL`,
       { type: sequelize.QueryTypes.SELECT }
     );
     console.log(`  Non-deleted deployments: ${nonDeletedDeployments.count}`);
 
     const [nonDeletedBatches] = await sequelize.query(
-      `SELECT COUNT(*) as count FROM batches WHERE deletedAt IS NULL`,
+      `SELECT COUNT(*) as count FROM batches WHERE "deletedAt" IS NULL`,
       { type: sequelize.QueryTypes.SELECT }
     );
     console.log(`  Non-deleted batches: ${nonDeletedBatches.count}`);
 
     const [nonDeletedItems] = await sequelize.query(
-      `SELECT COUNT(*) as count FROM inventory_items WHERE deletedAt IS NULL`,
+      `SELECT COUNT(*) as count FROM inventory_items WHERE "deletedAt" IS NULL`,
       { type: sequelize.QueryTypes.SELECT }
     );
     console.log(`  Non-deleted inventory items: ${nonDeletedItems.count}\n`);
@@ -653,13 +653,13 @@ export const debugStockMovement = async (req, res, next) => {
     console.log("📊 Step 3: Checking batch active status...");
 
     const [activeBatches] = await sequelize.query(
-      `SELECT COUNT(*) as count FROM batches WHERE deletedAt IS NULL AND is_active = TRUE`,
+      `SELECT COUNT(*) as count FROM batches WHERE "deletedAt" IS NULL AND is_active = TRUE`,
       { type: sequelize.QueryTypes.SELECT }
     );
     console.log(`  Active batches (is_active = TRUE): ${activeBatches.count}`);
 
     const [activeBatchesInt] = await sequelize.query(
-      `SELECT COUNT(*) as count FROM batches WHERE deletedAt IS NULL AND is_active = 1`,
+      `SELECT COUNT(*) as count FROM batches WHERE "deletedAt" IS NULL AND is_active = 1`,
       { type: sequelize.QueryTypes.SELECT }
     );
     console.log(
@@ -674,9 +674,9 @@ export const debugStockMovement = async (req, res, next) => {
        FROM deployments d
        INNER JOIN inventory_items i ON d.inventory_item_id = i.id
        INNER JOIN users u ON d.deployed_by = u.id
-       WHERE d.deletedAt IS NULL
-         AND i.deletedAt IS NULL
-         AND u.deletedAt IS NULL`,
+       WHERE d."deletedAt" IS NULL
+         AND i."deletedAt" IS NULL
+         AND u."deletedAt" IS NULL`,
       { type: sequelize.QueryTypes.SELECT }
     );
     console.log(`  Valid deployments with JOINs: ${deploymentJoins.count}`);
@@ -685,8 +685,8 @@ export const debugStockMovement = async (req, res, next) => {
       `SELECT COUNT(*) as count 
        FROM batches b
        INNER JOIN inventory_items i ON b.inventory_item_id = i.id
-       WHERE b.deletedAt IS NULL 
-         AND i.deletedAt IS NULL
+       WHERE b."deletedAt" IS NULL 
+         AND i."deletedAt" IS NULL
          AND b.is_active = TRUE`,
       { type: sequelize.QueryTypes.SELECT }
     );
@@ -702,12 +702,12 @@ export const debugStockMovement = async (req, res, next) => {
         d.deployment_date,
         d.inventory_item_id,
         d.deployed_by,
-        d.deletedAt as d_deletedAt,
+        d."deletedAt" as d_deletedAt,
         i.name as item_name,
-        i.deletedAt as i_deletedAt,
+        i."deletedAt" as i_deletedAt,
         u.firstname,
         u.lastname,
-        u.deletedAt as u_deletedAt
+        u."deletedAt" as u_deletedAt
        FROM deployments d
        LEFT JOIN inventory_items i ON d.inventory_item_id = i.id
        LEFT JOIN users u ON d.deployed_by = u.id
@@ -723,12 +723,12 @@ export const debugStockMovement = async (req, res, next) => {
       `SELECT 
         b.id,
         b.quantity,
-        b.createdAt,
+        b."createdAt",
         b.inventory_item_id,
         b.is_active,
-        b.deletedAt as b_deletedAt,
+        b."deletedAt" as b_deletedAt,
         i.name as item_name,
-        i.deletedAt as i_deletedAt
+        i."deletedAt" as i_deletedAt
        FROM batches b
        LEFT JOIN inventory_items i ON b.inventory_item_id = i.id
        LIMIT 3`,
@@ -744,7 +744,7 @@ export const debugStockMovement = async (req, res, next) => {
       const [deploymentsInRange] = await sequelize.query(
         `SELECT COUNT(*) as count 
          FROM deployments d
-         WHERE d.deletedAt IS NULL
+         WHERE d."deletedAt" IS NULL
            AND d.deployment_date BETWEEN :startDate AND :endDate`,
         {
           replacements: {
@@ -759,8 +759,8 @@ export const debugStockMovement = async (req, res, next) => {
       const [batchesInRange] = await sequelize.query(
         `SELECT COUNT(*) as count 
          FROM batches b
-         WHERE b.deletedAt IS NULL
-           AND b.createdAt BETWEEN :startDate AND :endDate`,
+         WHERE b."deletedAt" IS NULL
+           AND b."createdAt" BETWEEN :startDate AND :endDate`,
         {
           replacements: {
             startDate: new Date(startDate),
@@ -780,7 +780,7 @@ export const debugStockMovement = async (req, res, next) => {
       const [itemExists] = await sequelize.query(
         `SELECT COUNT(*) as count 
          FROM inventory_items 
-         WHERE id = :itemId AND deletedAt IS NULL`,
+         WHERE id = :itemId AND "deletedAt" IS NULL`,
         {
           replacements: { itemId: parseInt(itemId) },
           type: sequelize.QueryTypes.SELECT,
@@ -792,7 +792,7 @@ export const debugStockMovement = async (req, res, next) => {
         const [deploymentsForItem] = await sequelize.query(
           `SELECT COUNT(*) as count 
            FROM deployments d
-           WHERE d.deletedAt IS NULL
+           WHERE d."deletedAt" IS NULL
              AND d.inventory_item_id = :itemId`,
           {
             replacements: { itemId: parseInt(itemId) },
@@ -804,7 +804,7 @@ export const debugStockMovement = async (req, res, next) => {
         const [batchesForItem] = await sequelize.query(
           `SELECT COUNT(*) as count 
            FROM batches b
-           WHERE b.deletedAt IS NULL
+           WHERE b."deletedAt" IS NULL
              AND b.inventory_item_id = :itemId`,
           {
             replacements: { itemId: parseInt(itemId) },
@@ -834,7 +834,7 @@ export const debugStockMovement = async (req, res, next) => {
       : "";
     const batchDateFilter =
       startDate && endDate
-        ? "AND b.createdAt BETWEEN :startDate AND :endDate"
+        ? 'AND b."createdAt" BETWEEN :startDate AND :endDate'
         : "";
     const batchItemFilter = itemId ? "AND b.inventory_item_id = :itemId" : "";
 
@@ -851,9 +851,9 @@ export const debugStockMovement = async (req, res, next) => {
       FROM deployments d
       INNER JOIN inventory_items i ON d.inventory_item_id = i.id
       INNER JOIN users u ON d.deployed_by = u.id
-      WHERE d.deletedAt IS NULL
-        AND i.deletedAt IS NULL
-        AND u.deletedAt IS NULL
+      WHERE d."deletedAt" IS NULL
+        AND i."deletedAt" IS NULL
+        AND u."deletedAt" IS NULL
       ${deploymentDateFilter}
       ${deploymentItemFilter}
       ORDER BY d.deployment_date DESC
@@ -876,19 +876,19 @@ export const debugStockMovement = async (req, res, next) => {
         b.id,
         'REPLENISHED' as movementType,
         b.quantity,
-        b.createdAt as movementDate,
+        b."createdAt" as movementDate,
         i.name as itemName,
         i.quantity_in_stock as currentStock,
         COALESCE(i.location, 'Central Storage') as location,
         'System' as responsiblePerson
       FROM batches b
       INNER JOIN inventory_items i ON b.inventory_item_id = i.id
-      WHERE b.deletedAt IS NULL 
-        AND i.deletedAt IS NULL
+      WHERE b."deletedAt" IS NULL 
+        AND i."deletedAt" IS NULL
         AND b.is_active = TRUE
       ${batchDateFilter}
       ${batchItemFilter}
-      ORDER BY b.createdAt DESC
+      ORDER BY b."createdAt" DESC
       LIMIT :limit
     `;
 
@@ -1008,7 +1008,7 @@ const generateStockMovementReport = async (req, res, next) => {
       : "";
 
     const batchDateFilter = shouldUseDateFilter
-      ? "AND DATE(b.createdAt) BETWEEN DATE(:startDate) AND DATE(:endDate)"
+      ? 'AND DATE(b."createdAt") BETWEEN DATE(:startDate) AND DATE(:endDate)'
       : "";
 
     const batchItemFilter = itemId ? "AND b.inventory_item_id = :itemId" : "";
@@ -1039,9 +1039,9 @@ const generateStockMovementReport = async (req, res, next) => {
       FROM deployments d
       INNER JOIN inventory_items i ON d.inventory_item_id = i.id
       INNER JOIN users u ON d.deployed_by = u.id
-      WHERE d.deletedAt IS NULL
-        AND i.deletedAt IS NULL
-        AND u.deletedAt IS NULL
+      WHERE d."deletedAt" IS NULL
+        AND i."deletedAt" IS NULL
+        AND u."deletedAt" IS NULL
       ${deploymentDateFilter}
       ${deploymentItemFilter}
       ORDER BY d.deployment_date DESC
@@ -1062,18 +1062,18 @@ const generateStockMovementReport = async (req, res, next) => {
         b.id,
         'REPLENISHED' as movementType,
         b.quantity,
-        b.createdAt as movementDate,
+        b."createdAt" as movementDate,
         i.name as itemName,
         i.quantity_in_stock as currentStock,
         COALESCE(i.location, 'Central Storage') as location,
         'System' as responsiblePerson
       FROM batches b
       INNER JOIN inventory_items i ON b.inventory_item_id = i.id
-      WHERE b.deletedAt IS NULL 
-        AND i.deletedAt IS NULL
+      WHERE b."deletedAt" IS NULL 
+        AND i."deletedAt" IS NULL
       ${batchDateFilter}
       ${batchItemFilter}
-      ORDER BY b.createdAt DESC
+      ORDER BY b."createdAt" DESC
       LIMIT :batchLimit
       `,
       {
@@ -1100,8 +1100,8 @@ const generateStockMovementReport = async (req, res, next) => {
         COALESCE(SUM(d.quantity_deployed), 0) as totalQuantity
       FROM deployments d
       INNER JOIN inventory_items i ON d.inventory_item_id = i.id
-      WHERE d.deletedAt IS NULL
-        AND i.deletedAt IS NULL
+      WHERE d."deletedAt" IS NULL
+        AND i."deletedAt" IS NULL
       ${deploymentDateFilter}
       ${deploymentItemFilter}
       
@@ -1113,8 +1113,8 @@ const generateStockMovementReport = async (req, res, next) => {
         COALESCE(SUM(b.quantity), 0) as totalQuantity
       FROM batches b
       INNER JOIN inventory_items i ON b.inventory_item_id = i.id
-      WHERE b.deletedAt IS NULL 
-        AND i.deletedAt IS NULL
+      WHERE b."deletedAt" IS NULL 
+        AND i."deletedAt" IS NULL
       ${batchDateFilter}
       ${batchItemFilter}
       `,
@@ -1316,15 +1316,15 @@ const generateIncidentSummaryReport = async (req, res, next) => {
     const responseTimeStats = await sequelize.query(
       `
       SELECT 
-        AVG(TIMESTAMPDIFF(MINUTE, i.createdAt, ia.acceptedAt)) AS avgResponseMinutes,
-        MIN(TIMESTAMPDIFF(MINUTE, i.createdAt, ia.acceptedAt)) AS minResponseMinutes,
-        MAX(TIMESTAMPDIFF(MINUTE, i.createdAt, ia.acceptedAt)) AS maxResponseMinutes
-      FROM Incidents i
-      LEFT JOIN IncidentAcceptance ia ON i.id = ia.incidentId
-      WHERE i.deletedAt IS NULL
-      AND i.createdAt BETWEEN :start AND :end
+        AVG(EXTRACT(EPOCH FROM (ia."acceptedAt" - i."createdAt")) / 60) AS avgResponseMinutes,
+        MIN(EXTRACT(EPOCH FROM (ia."acceptedAt" - i."createdAt")) / 60) AS minResponseMinutes,
+        MAX(EXTRACT(EPOCH FROM (ia."acceptedAt" - i."createdAt")) / 60) AS maxResponseMinutes
+      FROM "Incidents" i
+      LEFT JOIN "IncidentAcceptance" ia ON i.id = ia."incidentId"
+      WHERE i."deletedAt" IS NULL
+      AND i."createdAt" BETWEEN :start AND :end
       ${incidentType ? "AND i.type = :incidentType" : ""}
-      ${reportType ? "AND i.reportType = :reportType" : ""}
+      ${reportType ? 'AND i."reportType" = :reportType' : ""}
       ${status ? "AND i.status = :status" : ""}
     `,
       {
@@ -1342,19 +1342,19 @@ const generateIncidentSummaryReport = async (req, res, next) => {
     // ------------------------------
     // INCIDENT TREND OVER TIME
     // ------------------------------
-    const timeFormat = period === "daily" ? "%H:00" : "%Y-%m-%d";
+    const timeFormat = period === "daily" ? "HH24:00" : "YYYY-MM-DD";
 
     const incidentsByTime = await sequelize.query(
       `
       SELECT 
-        DATE_FORMAT(createdAt, '${timeFormat}') AS timePeriod,
+        TO_CHAR("createdAt", '${timeFormat}') AS timePeriod,
         COUNT(*) AS count
-      FROM Incidents
-      WHERE deletedAt IS NULL
-      AND createdAt BETWEEN :start AND :end
+      FROM "Incidents"
+      WHERE "deletedAt" IS NULL
+      AND "createdAt" BETWEEN :start AND :end
       ${incidentType ? "AND type = :incidentType" : ""}
       ${status ? "AND status = :status" : ""}
-      ${reportType ? "AND reportType = :reportType" : ""}
+      ${reportType ? 'AND "reportType" = :reportType' : ""}
       GROUP BY timePeriod
       ORDER BY timePeriod
     `,
@@ -1376,10 +1376,10 @@ const generateIncidentSummaryReport = async (req, res, next) => {
     const aiDetectionStats = await YOLOIncident.findAll({
       attributes: [
         "aiType",
-        [sequelize.fn("COUNT", sequelize.col("aiType")), "count"],
-        [sequelize.fn("AVG", sequelize.col("confidence")), "avgConfidence"],
+        [sequelize.fn("COUNT", sequelize.col("YOLOIncident.aiType")), "count"],
+        [sequelize.fn("AVG", sequelize.col("YOLOIncident.confidence")), "avgConfidence"],
         [
-          sequelize.fn("AVG", sequelize.col("processingTime")),
+          sequelize.fn("AVG", sequelize.col("YOLOIncident.processingTime")),
           "avgProcessingTime",
         ],
       ],
@@ -1387,11 +1387,12 @@ const generateIncidentSummaryReport = async (req, res, next) => {
         {
           model: Incident,
           as: "incident",
+          attributes: [],
           where: whereClause,
           required: true,
         },
       ],
-      group: ["aiType"],
+      group: ["YOLOIncident.aiType"],
     });
 
     // ------------------------------
@@ -1959,42 +1960,42 @@ const generateTopLocationsByIncidentsReport = async (req, res, next) => {
     SELECT 
       i.id,
       i.type,
-      i.reportType,
+      i."reportType",
       i.status,
-      i.createdAt,
+      i."createdAt",
       i.latitude,
       i.longitude,
       
       -- Camera details (now coming from YOLOIncident -> Camera)
-      y.cameraId,
+      y."cameraId",
       c.location as cameraLocation,
       c.latitude as cameraLatitude,
       c.longitude as cameraLongitude,
 
       -- YOLO AI details
-      y.aiType as yoloAiType,
+      y."aiType" as yoloAiType,
       y.confidence as yoloConfidence,
-      y.modelVersion as yoloModelVersion,
-      y.detectionFrameUrl,
-      y.detectedObjects,
+      y."modelVersion" as yoloModelVersion,
+      y."detectionFrameUrl",
+      y."detectedObjects",
 
       -- Human report details
-      h.reportedBy as humanReporter
+      h."reportedBy" as humanReporter
 
-    FROM Incidents i
-    LEFT JOIN YOLOIncidents y ON i.id = y.incidentId
-    LEFT JOIN Cameras c ON y.cameraId = c.id
-    LEFT JOIN HumanIncidents h ON i.id = h.incidentId
-    WHERE i.deletedAt IS NULL
+    FROM "Incidents" i
+    LEFT JOIN "YOLOIncidents" y ON i.id = y."incidentId"
+    LEFT JOIN "Cameras" c ON y."cameraId" = c.id
+    LEFT JOIN "HumanIncidents" h ON i.id = h."incidentId"
+    WHERE i."deletedAt" IS NULL
       ${
         startDate && endDate
-          ? "AND i.createdAt BETWEEN :startDate AND :endDate"
+          ? 'AND i."createdAt" BETWEEN :startDate AND :endDate'
           : ""
       }
       ${incidentType ? "AND i.type = :incidentType" : ""}
       ${
         reportType && reportType !== "all"
-          ? "AND i.reportType = :reportType"
+          ? 'AND i."reportType" = :reportType'
           : ""
       }
   `,
@@ -2281,7 +2282,7 @@ const generateResolvedVsUnresolvedReport = async (req, res, next) => {
       `
       SELECT 
         status,
-        reportType,
+        "reportType",
         COUNT(*) as count,
         CASE 
           WHEN status = 'pending' THEN 'Awaiting Response'
@@ -2290,19 +2291,19 @@ const generateResolvedVsUnresolvedReport = async (req, res, next) => {
           WHEN status = 'dismissed' THEN 'Dismissed/False Alarm'
           ELSE 'Other'
         END as reason
-      FROM Incidents
-      WHERE deletedAt IS NULL
+      FROM "Incidents"
+      WHERE "deletedAt" IS NULL
       AND status != 'resolved'
       ${
         startDate && endDate
-          ? "AND createdAt BETWEEN :startDate AND :endDate"
+          ? 'AND "createdAt" BETWEEN :startDate AND :endDate'
           : ""
       }
       ${incidentType ? "AND type = :incidentType" : ""}
       ${
-        reportType && reportType !== "all" ? "AND reportType = :reportType" : ""
+        reportType && reportType !== "all" ? 'AND "reportType" = :reportType' : ""
       }
-      GROUP BY status, reportType
+      GROUP BY status, "reportType"
     `,
       {
         replacements: {
@@ -2319,19 +2320,19 @@ const generateResolvedVsUnresolvedReport = async (req, res, next) => {
     const resolutionRateByType = await sequelize.query(
       `
       SELECT 
-        reportType,
+        "reportType",
         COUNT(*) as total,
         SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END) as resolved,
         ROUND((SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) as resolutionRate
-      FROM Incidents
-      WHERE deletedAt IS NULL
+      FROM "Incidents"
+      WHERE "deletedAt" IS NULL
       ${
         startDate && endDate
-          ? "AND createdAt BETWEEN :startDate AND :endDate"
+          ? 'AND "createdAt" BETWEEN :startDate AND :endDate'
           : ""
       }
       ${incidentType ? "AND type = :incidentType" : ""}
-      GROUP BY reportType
+      GROUP BY "reportType"
     `,
       {
         replacements: {
@@ -2351,20 +2352,20 @@ const generateResolvedVsUnresolvedReport = async (req, res, next) => {
     const resolutionTimeStats = await sequelize.query(
       `
       SELECT 
-        AVG(TIMESTAMPDIFF(HOUR, createdAt, updatedAt)) as avgResolutionHours,
-        MIN(TIMESTAMPDIFF(HOUR, createdAt, updatedAt)) as minResolutionHours,
-        MAX(TIMESTAMPDIFF(HOUR, createdAt, updatedAt)) as maxResolutionHours
-      FROM Incidents
+        AVG(EXTRACT(EPOCH FROM ("updatedAt" - "createdAt")) / 3600) as avgResolutionHours,
+        MIN(EXTRACT(EPOCH FROM ("updatedAt" - "createdAt")) / 3600) as minResolutionHours,
+        MAX(EXTRACT(EPOCH FROM ("updatedAt" - "createdAt")) / 3600) as maxResolutionHours
+      FROM "Incidents"
       WHERE status = 'resolved'
-      AND deletedAt IS NULL
+      AND "deletedAt" IS NULL
       ${
         startDate && endDate
-          ? "AND createdAt BETWEEN :startDate AND :endDate"
+          ? 'AND "createdAt" BETWEEN :startDate AND :endDate'
           : ""
       }
       ${incidentType ? "AND type = :incidentType" : ""}
       ${
-        reportType && reportType !== "all" ? "AND reportType = :reportType" : ""
+        reportType && reportType !== "all" ? 'AND "reportType" = :reportType' : ""
       }
     `,
       {
@@ -2382,23 +2383,23 @@ const generateResolvedVsUnresolvedReport = async (req, res, next) => {
     const resolutionTrends = await sequelize.query(
       `
       SELECT 
-        DATE(createdAt) as date,
-        reportType,
+        DATE("createdAt") as date,
+        "reportType",
         COUNT(*) as totalIncidents,
         SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END) as resolvedIncidents,
         ROUND((SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) as resolutionRate
-      FROM Incidents
-      WHERE deletedAt IS NULL
+      FROM "Incidents"
+      WHERE "deletedAt" IS NULL
       ${
         startDate && endDate
-          ? "AND createdAt BETWEEN :startDate AND :endDate"
+          ? 'AND "createdAt" BETWEEN :startDate AND :endDate'
           : ""
       }
       ${incidentType ? "AND type = :incidentType" : ""}
       ${
-        reportType && reportType !== "all" ? "AND reportType = :reportType" : ""
+        reportType && reportType !== "all" ? 'AND "reportType" = :reportType' : ""
       }
-      GROUP BY DATE(createdAt), reportType
+      GROUP BY DATE("createdAt"), "reportType"
       ORDER BY date DESC
       LIMIT 30
     `,
@@ -2460,7 +2461,7 @@ const generateResponderPerformanceReport = async (req, res, next) => {
     // Build date filter
     let dateFilter = "";
     if (startDate && endDate) {
-      dateFilter = "AND ia.acceptedAt BETWEEN :startDate AND :endDate";
+      dateFilter = 'AND ia."acceptedAt" BETWEEN :startDate AND :endDate';
     }
 
     // Get responder performance statistics with report type information
@@ -2470,23 +2471,23 @@ const generateResponderPerformanceReport = async (req, res, next) => {
         u.id,
         CONCAT(u.firstname, ' ', u.lastname) as responderName,
         u.role,
-        COUNT(ia.incidentId) as incidentsAccepted,
+        COUNT(ia."incidentId") as incidentsAccepted,
         COUNT(CASE WHEN i.status = 'resolved' THEN 1 END) as incidentsResolved,
-        COUNT(CASE WHEN i.reportType = 'human' THEN 1 END) as humanIncidents,
-        COUNT(CASE WHEN i.reportType = 'yolo' THEN 1 END) as yoloIncidents,
-        AVG(TIMESTAMPDIFF(MINUTE, i.createdAt, ia.acceptedAt)) as avgResponseTimeMinutes,
-        MIN(TIMESTAMPDIFF(MINUTE, i.createdAt, ia.acceptedAt)) as minResponseTimeMinutes,
-        MAX(TIMESTAMPDIFF(MINUTE, i.createdAt, ia.acceptedAt)) as maxResponseTimeMinutes,
-        ROUND((COUNT(CASE WHEN i.status = 'resolved' THEN 1 END) / COUNT(ia.incidentId)) * 100, 2) as resolutionRate
-      FROM IncidentAcceptance ia
-      JOIN users u ON ia.userId = u.id
-      JOIN Incidents i ON ia.incidentId = i.id
-      WHERE u.deletedAt IS NULL
-      AND i.deletedAt IS NULL
+        COUNT(CASE WHEN i."reportType" = 'human' THEN 1 END) as humanIncidents,
+        COUNT(CASE WHEN i."reportType" = 'yolo' THEN 1 END) as yoloIncidents,
+        AVG(EXTRACT(EPOCH FROM (ia."acceptedAt" - i."createdAt")) / 60) as avgResponseTimeMinutes,
+        MIN(EXTRACT(EPOCH FROM (ia."acceptedAt" - i."createdAt")) / 60) as minResponseTimeMinutes,
+        MAX(EXTRACT(EPOCH FROM (ia."acceptedAt" - i."createdAt")) / 60) as maxResponseTimeMinutes,
+        ROUND((COUNT(CASE WHEN i.status = 'resolved' THEN 1 END) / COUNT(ia."incidentId")) * 100, 2) as resolutionRate
+      FROM "IncidentAcceptance" ia
+      JOIN users u ON ia."userId" = u.id
+      JOIN "Incidents" i ON ia."incidentId" = i.id
+      WHERE u."deletedAt" IS NULL
+      AND i."deletedAt" IS NULL
       ${userId ? "AND u.id = :userId" : ""}
       ${
         reportType && reportType !== "all"
-          ? "AND i.reportType = :reportType"
+          ? 'AND i."reportType" = :reportType'
           : ""
       }
       ${dateFilter}
@@ -2513,21 +2514,21 @@ const generateResponderPerformanceReport = async (req, res, next) => {
         u.id as userId,
         CONCAT(u.firstname, ' ', u.lastname) as responderName,
         i.type as incidentType,
-        i.reportType,
+        i."reportType",
         COUNT(*) as count
-      FROM IncidentAcceptance ia
-      JOIN users u ON ia.userId = u.id
-      JOIN Incidents i ON ia.incidentId = i.id
-      WHERE u.deletedAt IS NULL
-      AND i.deletedAt IS NULL
+      FROM "IncidentAcceptance" ia
+      JOIN users u ON ia."userId" = u.id
+      JOIN "Incidents" i ON ia."incidentId" = i.id
+      WHERE u."deletedAt" IS NULL
+      AND i."deletedAt" IS NULL
       ${userId ? "AND u.id = :userId" : ""}
       ${
         reportType && reportType !== "all"
-          ? "AND i.reportType = :reportType"
+          ? 'AND i."reportType" = :reportType'
           : ""
       }
       ${dateFilter}
-      GROUP BY u.id, u.firstname, u.lastname, i.type, i.reportType
+      GROUP BY u.id, u.firstname, u.lastname, i.type, i."reportType"
       ORDER BY u.id, count DESC
     `,
       {
@@ -2547,19 +2548,19 @@ const generateResponderPerformanceReport = async (req, res, next) => {
       SELECT 
         u.role as team,
         COUNT(DISTINCT u.id) as teamSize,
-        COUNT(ia.incidentId) as totalIncidentsHandled,
-        COUNT(CASE WHEN i.reportType = 'human' THEN 1 END) as humanIncidents,
-        COUNT(CASE WHEN i.reportType = 'yolo' THEN 1 END) as yoloIncidents,
-        AVG(TIMESTAMPDIFF(MINUTE, i.createdAt, ia.acceptedAt)) as avgTeamResponseTime,
-        ROUND((COUNT(CASE WHEN i.status = 'resolved' THEN 1 END) / COUNT(ia.incidentId)) * 100, 2) as teamResolutionRate
-      FROM IncidentAcceptance ia
-      JOIN users u ON ia.userId = u.id
-      JOIN Incidents i ON ia.incidentId = i.id
-      WHERE u.deletedAt IS NULL
-      AND i.deletedAt IS NULL
+        COUNT(ia."incidentId") as totalIncidentsHandled,
+        COUNT(CASE WHEN i."reportType" = 'human' THEN 1 END) as humanIncidents,
+        COUNT(CASE WHEN i."reportType" = 'yolo' THEN 1 END) as yoloIncidents,
+        AVG(EXTRACT(EPOCH FROM (ia."acceptedAt" - i."createdAt")) / 60) as avgTeamResponseTime,
+        ROUND((COUNT(CASE WHEN i.status = 'resolved' THEN 1 END) / COUNT(ia."incidentId")) * 100, 2) as teamResolutionRate
+      FROM "IncidentAcceptance" ia
+      JOIN users u ON ia."userId" = u.id
+      JOIN "Incidents" i ON ia."incidentId" = i.id
+      WHERE u."deletedAt" IS NULL
+      AND i."deletedAt" IS NULL
       ${
         reportType && reportType !== "all"
-          ? "AND i.reportType = :reportType"
+          ? 'AND i."reportType" = :reportType'
           : ""
       }
       ${dateFilter}

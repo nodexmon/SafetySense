@@ -48,7 +48,6 @@ const Deployment = sequelize.define(
         "RELIEF_OPERATION"
       ),
       allowNull: false,
-      comment: "Type of deployment operation",
     },
     quantity_deployed: {
       type: DataTypes.INTEGER,

@@ -37,7 +37,6 @@ const DeploymentNotes = sequelize.define(
       type: DataTypes.ENUM("USER", "SYSTEM"),
       defaultValue: "USER",
       allowNull: false,
-      comment: "Indicates if note was added by user or system",
     },
     created_by: {
       type: DataTypes.UUID,

@@ -231,12 +231,12 @@ const getIncidentStats = async (req, res, next) => {
     const incidentsByDay = await sequelize.query(
       `
       SELECT 
-        DATE(createdAt) AS date,
+        DATE("createdAt") AS date,
         COUNT(*) AS count
-      FROM Incidents
-      WHERE createdAt >= :startDate
-      AND deletedAt IS NULL
-      GROUP BY DATE(createdAt)
+      FROM "Incidents"
+      WHERE "createdAt" >= :startDate
+      AND "deletedAt" IS NULL
+      GROUP BY DATE("createdAt")
       ORDER BY date ASC
       `,
       {
@@ -269,11 +269,11 @@ const getIncidentStats = async (req, res, next) => {
     const resolutionTimeQuery = await sequelize.query(
       `
       SELECT 
-        AVG(TIMESTAMPDIFF(HOUR, createdAt, updatedAt)) AS avgResolutionHours
-      FROM Incidents
+        AVG(EXTRACT(EPOCH FROM ("updatedAt" - "createdAt")) / 3600) AS avgResolutionHours
+      FROM "Incidents"
       WHERE status = 'resolved'
-      AND createdAt >= :startDate
-      AND deletedAt IS NULL
+      AND "createdAt" >= :startDate
+      AND "deletedAt" IS NULL
       `,
       {
         replacements: { startDate },
@@ -287,12 +287,12 @@ const getIncidentStats = async (req, res, next) => {
     const incidentsBySource = await sequelize.query(
       `
       SELECT 
-        reportType AS source,
+        "reportType" AS source,
         COUNT(*) AS count
-      FROM Incidents
-      WHERE createdAt >= :startDate
-      AND deletedAt IS NULL
-      GROUP BY reportType
+      FROM "Incidents"
+      WHERE "createdAt" >= :startDate
+      AND "deletedAt" IS NULL
+      GROUP BY "reportType"
       `,
       {
         replacements: { startDate },
@@ -356,7 +356,7 @@ const getInventoryStats = async (req, res, next) => {
         SUM(i.quantity_in_stock) as totalQuantity
       FROM inventory_items i
       JOIN categories c ON i.category_id = c.id
-      WHERE i.deletedAt IS NULL
+      WHERE i."deletedAt" IS NULL
       AND i.is_active = true
       GROUP BY c.name
     `,
@@ -382,7 +382,7 @@ const getInventoryStats = async (req, res, next) => {
       SELECT 
         SUM(b.unit_price * b.quantity) as totalValue
       FROM batches b
-      WHERE b.deletedAt IS NULL
+      WHERE b."deletedAt" IS NULL
       AND b.is_active = true
     `,
       {
@@ -447,7 +447,7 @@ const getDeploymentStats = async (req, res, next) => {
         COUNT(*) as count
       FROM deployments
       WHERE deployment_date >= :startDate
-      AND deletedAt IS NULL
+      AND "deletedAt" IS NULL
       GROUP BY DATE(deployment_date)
       ORDER BY date ASC
     `,
@@ -491,7 +491,7 @@ const getDeploymentStats = async (req, res, next) => {
         COUNT(*) as count
       FROM deployments
       WHERE deployment_date >= :startDate
-      AND deletedAt IS NULL
+      AND "deletedAt" IS NULL
       GROUP BY deployment_location
       ORDER BY count DESC
       LIMIT 5
@@ -512,7 +512,7 @@ const getDeploymentStats = async (req, res, next) => {
       FROM deployments d
       JOIN users u ON d.deployed_by = u.id
       WHERE d.deployment_date >= :startDate
-      AND d.deletedAt IS NULL
+      AND d."deletedAt" IS NULL
       GROUP BY d.deployed_by, u.id, u.firstname, u.lastname
       ORDER BY deploymentCount DESC
       LIMIT 5
@@ -579,11 +579,11 @@ const getUserActivityStats = async (req, res, next) => {
       SELECT 
         u.id,
         CONCAT(u.firstname, ' ', u.lastname) as name,
-        COUNT(ia.incidentId) as acceptedCount
-      FROM IncidentAcceptance ia
-      JOIN users u ON ia.userId = u.id
-      WHERE ia.acceptedAt >= :startDate
-      GROUP BY ia.userId, u.id, u.firstname, u.lastname
+        COUNT(ia."incidentId") as acceptedCount
+      FROM "IncidentAcceptance" ia
+      JOIN users u ON ia."userId" = u.id
+      WHERE ia."acceptedAt" >= :startDate
+      GROUP BY ia."userId", u.id, u.firstname, u.lastname
       ORDER BY acceptedCount DESC
       LIMIT 5
     `,
@@ -604,9 +604,9 @@ const getUserActivityStats = async (req, res, next) => {
     // Get active users (users who accepted at least one incident)
     const activeUsers = await sequelize.query(
       `
-      SELECT COUNT(DISTINCT userId) as count
-      FROM IncidentAcceptance
-      WHERE acceptedAt >= :startDate
+      SELECT COUNT(DISTINCT "userId") as count
+      FROM "IncidentAcceptance"
+      WHERE "acceptedAt" >= :startDate
     `,
       {
         replacements: { startDate },
@@ -618,12 +618,12 @@ const getUserActivityStats = async (req, res, next) => {
     const acceptanceRateQuery = await sequelize.query(
       `
       SELECT 
-        COUNT(DISTINCT ia.incidentId) as acceptedIncidents,
+        COUNT(DISTINCT ia."incidentId") as acceptedIncidents,
         COUNT(DISTINCT i.id) as totalIncidents
-      FROM Incidents i
-      LEFT JOIN IncidentAcceptance ia ON i.id = ia.incidentId
-      WHERE i.createdAt >= :startDate
-      AND i.deletedAt IS NULL
+      FROM "Incidents" i
+      LEFT JOIN "IncidentAcceptance" ia ON i.id = ia."incidentId"
+      WHERE i."createdAt" >= :startDate
+      AND i."deletedAt" IS NULL
     `,
       {
         replacements: { startDate },
@@ -640,11 +640,11 @@ const getUserActivityStats = async (req, res, next) => {
     const responseTimeQuery = await sequelize.query(
       `
       SELECT 
-        AVG(TIMESTAMPDIFF(MINUTE, i.createdAt, ia.acceptedAt)) as avgResponseMinutes
-      FROM Incidents i
-      JOIN IncidentAcceptance ia ON i.id = ia.incidentId
-      WHERE i.createdAt >= :startDate
-      AND i.deletedAt IS NULL
+        AVG(EXTRACT(EPOCH FROM (ia."acceptedAt" - i."createdAt")) / 60) as avgResponseMinutes
+      FROM "Incidents" i
+      JOIN "IncidentAcceptance" ia ON i.id = ia."incidentId"
+      WHERE i."createdAt" >= :startDate
+      AND i."deletedAt" IS NULL
     `,
       {
         replacements: { startDate },
