@@ -19,7 +19,6 @@ import xlsx from "xlsx";
 import path from "path";
 import { fileURLToPath } from "url";
 import { getFileUrl, getFilePath } from "../../config/multer.js";
-import supabase from "../../config/supabase/supabase.js";
 
 // Get current directory for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -369,15 +368,11 @@ const getIncidents = async (req, res, next) => {
       const urls = {};
 
       if (incident.snapshotUrl) {
-        urls.main = supabase.storage
-          .from("uploads")
-          .getPublicUrl(incident.snapshotUrl).data.publicUrl;
+        urls.main = getFileUrl(incident.snapshotUrl);
       }
 
       if (incident.yoloDetails?.detectionFrameUrl) {
-        urls.ai = supabase.storage
-          .from("uploads")
-          .getPublicUrl(incident.yoloDetails.detectionFrameUrl).data.publicUrl;
+        urls.ai = getFileUrl(incident.yoloDetails.detectionFrameUrl);
       }
 
       incident.dataValues.snapshotSignedUrls = urls;
@@ -470,20 +465,14 @@ const getIncident = async (req, res, next) => {
 
     // 🖼️ Snapshot URL
     if (incident.snapshotUrl) {
-      const { data } = supabase.storage
-        .from("uploads")
-        .getPublicUrl(incident.snapshotUrl);
-      if (data?.publicUrl)
-        incident.dataValues.snapshotSignedUrl = data.publicUrl;
+      incident.dataValues.snapshotSignedUrl = getFileUrl(incident.snapshotUrl);
     }
 
     // 🤖 YOLO frame URL
     if (incident.yoloDetails?.detectionFrameUrl) {
-      const { data } = supabase.storage
-        .from("uploads")
-        .getPublicUrl(incident.yoloDetails.detectionFrameUrl);
-      if (data?.publicUrl)
-        incident.dataValues.aiFrameSignedUrl = data.publicUrl;
+      incident.dataValues.aiFrameSignedUrl = getFileUrl(
+        incident.yoloDetails.detectionFrameUrl
+      );
     }
 
     // 📡 Determine source type based on reportType

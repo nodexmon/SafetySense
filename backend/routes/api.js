@@ -24,6 +24,13 @@ router.use("/dashboard", dashboardRouter);
 router.use("/reports", reportRouter);
 router.get("/test-supabase-storage", async (req, res) => {
   try {
+    if (!supabase) {
+      return res.json({
+        storageDriver: process.env.STORAGE_DRIVER || "local",
+        message: "Supabase is not configured; using local file storage.",
+      });
+    }
+
     const { data, error } = await supabase.storage.listBuckets();
     if (error) throw error;
     res.json({

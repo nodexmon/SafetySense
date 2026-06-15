@@ -1,59 +1,53 @@
 import { Sequelize } from "sequelize";
-import mysql from "mysql2/promise";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-// Function to ensure database (for local only)
-async function createDatabaseIfNotExists() {
-  try {
-    const connection = await mysql.createConnection({
-      host: process.env.DB_HOST,
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-    });
+const isProduction = process.env.NODE_ENV === "production";
+const useSsl =
+  process.env.DB_SSL === "true" ||
+  process.env.DATABASE_URL?.includes("sslmode=require");
 
-    await connection.query(
-      `CREATE DATABASE IF NOT EXISTS \`${process.env.DB_NAME}\`;`
+const commonOptions = {
+  dialect: "postgres",
+  logging: false,
+  pool: {
+    max: 5,
+    min: 0,
+    acquire: 30000,
+    idle: 10000,
+  },
+  dialectOptions: useSsl
+    ? {
+        ssl: {
+          require: true,
+          rejectUnauthorized: false,
+        },
+      }
+    : {},
+};
+
+const sequelize = process.env.DATABASE_URL
+  ? new Sequelize(process.env.DATABASE_URL, commonOptions)
+  : new Sequelize(
+      process.env.DB_NAME,
+      process.env.DB_USER,
+      process.env.DB_PASSWORD,
+      {
+        ...commonOptions,
+        host: process.env.DB_HOST,
+        port: process.env.DB_PORT || 5432,
+      }
     );
-    console.log(`Database '${process.env.DB_NAME}' ensured to exist (local).`);
-    await connection.end();
-  } catch (error) {
-    console.error("Error ensuring database exists:", error);
-  }
-}
 
-// Only run this in local development
-if (process.env.NODE_ENV !== "production") {
-  (async () => {
-    await createDatabaseIfNotExists();
-  })();
-}
-
-// Initialize Sequelize
-const sequelize = new Sequelize(
-  process.env.DB_NAME,
-  process.env.DB_USER,
-  process.env.DB_PASSWORD,
-  {
-    host: process.env.DB_HOST,
-    dialect: "mysql",
-    port: process.env.DB_PORT || 3306,
-    logging: false,
-    pool: {
-      max: 5,
-      min: 0,
-      acquire: 30000,
-      idle: 10000,
-    },
-  }
-);
-
-// Test database connection
 (async () => {
   try {
     await sequelize.authenticate();
-    console.log("Database connection established successfully.");
+    console.log(
+      `Postgres connection established successfully${
+        isProduction ? "." : " (development)."
+      }`
+    );
   } catch (error) {
     console.error("Unable to connect to the database:", error);
   }

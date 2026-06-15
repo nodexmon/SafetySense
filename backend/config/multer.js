@@ -1,6 +1,9 @@
 import multer from "multer";
 import { BadRequestError } from "../utils/Error.js";
 import supabase from "./supabase/supabase.js";
+import fs from "fs/promises";
+import path from "path";
+import { fileURLToPath } from "url";
 
 // Configure multer to use memory storage instead of disk storage
 const storage = multer.memoryStorage();
@@ -34,6 +37,24 @@ const upload = multer({
 
 // Enhanced retry logic for network issues
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const defaultBucket = process.env.SUPABASE_STORAGE_BUCKET || "uploads";
+const storageDriver = process.env.STORAGE_DRIVER || "local";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const uploadRoot = path.resolve(
+  __dirname,
+  "..",
+  process.env.LOCAL_UPLOAD_DIR || "uploads"
+);
+
+const getIncidentPath = (filename) =>
+  filename.includes("incidents/") ? filename : `incidents/${filename}`;
+
+const createIncidentFileName = (file) => {
+  const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+  const fileExt = file.originalname.split(".").pop();
+  return `incident-${uniqueSuffix}.${fileExt}`;
+};
 
 const retryOperation = async (operation, maxRetries = 3, baseDelay = 1000) => {
   let lastError;
@@ -68,17 +89,32 @@ const retryOperation = async (operation, maxRetries = 3, baseDelay = 1000) => {
   throw lastError;
 };
 
+const uploadToLocal = async (file) => {
+  const fileName = createIncidentFileName(file);
+  const filePath = `incidents/${fileName}`;
+  const absoluteDir = path.join(uploadRoot, "incidents");
+  const absolutePath = path.join(uploadRoot, filePath);
+
+  await fs.mkdir(absoluteDir, { recursive: true });
+  await fs.writeFile(absolutePath, file.buffer);
+
+  console.log(`File saved locally: ${absolutePath}`);
+  return filePath;
+};
+
 // Upload file to Supabase storage with correct bucket/folder structure
-const uploadToSupabase = async (file, rawBucket = "uploads") => {
+const uploadToSupabase = async (file, rawBucket = defaultBucket) => {
+  if (!supabase) {
+    throw new BadRequestError("Supabase storage is not configured");
+  }
+
   const bucket = rawBucket.trim();
 
   try {
     // Skip bucket validation to avoid extra network calls
     // Assume bucket exists and let the upload operation handle errors
 
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const fileExt = file.originalname.split(".").pop();
-    const fileName = `incident-${uniqueSuffix}.${fileExt}`;
+    const fileName = createIncidentFileName(file);
 
     // Upload to uploads bucket in the incidents folder
     const filePath = `incidents/${fileName}`;
@@ -161,17 +197,21 @@ const uploadMiddleware = (req, res, next) => {
     // If file was uploaded, try to upload it to Supabase
     if (req.file) {
       try {
-        console.log("Processing file for Supabase upload:", req.file);
-        const supabasePath = await uploadToSupabase(req.file);
+        console.log(`Processing file for ${storageDriver} upload:`, req.file);
+        const storedPath =
+          storageDriver === "supabase"
+            ? await uploadToSupabase(req.file)
+            : await uploadToLocal(req.file);
 
-        // Add Supabase path to the request object
-        req.file.supabasePath = supabasePath;
-        req.file.filename = supabasePath.split("/").pop(); // Extract filename from path
+        req.file.supabasePath = storedPath;
+        req.file.storagePath = storedPath;
+        req.file.storageDriver = storageDriver;
+        req.file.filename = storedPath.split("/").pop(); // Extract filename from path
 
         console.log("Upload middleware completed successfully");
-        console.log("req.file after Supabase upload:", req.file);
+        console.log("req.file after storage upload:", req.file);
       } catch (uploadError) {
-        console.error("Supabase upload failed:", uploadError);
+        console.error("Storage upload failed:", uploadError);
 
         // Instead of failing completely, continue without the file
         // and let the route handler decide what to do
@@ -186,13 +226,19 @@ const uploadMiddleware = (req, res, next) => {
   });
 };
 
-// Helper to get public URL from Supabase with correct bucket/folder structure
-const getFileUrl = (filename, bucket = "uploads") => {
+// Helper to get public URL from configured storage
+const getFileUrl = (filename, bucket = defaultBucket) => {
   try {
-    // If filename already includes the folder path, use it as is
-    const filePath = filename.includes("incidents/")
-      ? filename
-      : `incidents/${filename}`;
+    const filePath = getIncidentPath(filename);
+
+    if (storageDriver !== "supabase") {
+      const publicBaseUrl =
+        process.env.BACKEND_PUBLIC_URL || `http://localhost:${process.env.PORT || 3000}`;
+      return `${publicBaseUrl}/uploads/${filePath.replace(/\\/g, "/")}`;
+    }
+
+    if (!supabase) return null;
+
     const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
     console.log("Public url: ", data.publicUrl);
     return data.publicUrl;
@@ -205,15 +251,23 @@ const getFileUrl = (filename, bucket = "uploads") => {
 // Helper to get file path (for backward compatibility)
 const getFilePath = (filename) => {
   // Return the full path including the folder
-  return filename.includes("incidents/") ? filename : `incidents/${filename}`;
+  return getIncidentPath(filename);
 };
 
 // Helper to delete file from Supabase with retry logic
-const deleteFile = async (filename, bucket = "uploads") => {
+const deleteFile = async (filename, bucket = defaultBucket) => {
   try {
-    const filePath = filename.includes("incidents/")
-      ? filename
-      : `incidents/${filename}`;
+    const filePath = getIncidentPath(filename);
+
+    if (storageDriver !== "supabase") {
+      await fs.unlink(path.join(uploadRoot, filePath));
+      console.log(`File ${filePath} deleted successfully from local storage`);
+      return true;
+    }
+
+    if (!supabase) {
+      throw new BadRequestError("Supabase storage is not configured");
+    }
 
     const deleteOperation = async () => {
       const { error } = await supabase.storage.from(bucket).remove([filePath]);
@@ -236,6 +290,8 @@ const deleteFile = async (filename, bucket = "uploads") => {
 // Health check function to test Supabase connection
 const testSupabaseConnection = async () => {
   try {
+    if (!supabase) return false;
+
     const { data, error } = await supabase.storage.listBuckets();
     if (error) {
       console.error("Supabase connection test failed:", error);
@@ -256,11 +312,19 @@ const testSupabaseConnection = async () => {
 // Function to test the uploads/incidents structure
 const testUploadsIncidentsStructure = async () => {
   try {
+    if (storageDriver !== "supabase") {
+      await fs.mkdir(path.join(uploadRoot, "incidents"), { recursive: true });
+      console.log("Local uploads/incidents structure is accessible");
+      return true;
+    }
+
+    if (!supabase) return false;
+
     console.log("Testing uploads/incidents structure...");
 
-    // List files in the uploads bucket
+    // List files in the configured bucket
     const { data, error } = await supabase.storage
-      .from("uploads")
+      .from(defaultBucket)
       .list("incidents", {
         limit: 1,
       });

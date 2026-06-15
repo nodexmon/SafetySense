@@ -3,3 +3,6 @@
 
 # Environment files (ignore everywhere)
 **/.env
+
+# Local uploaded files
+backend/uploads/

@@ -27,17 +27,25 @@ class RedisManager {
     this.isConnecting = true;
 
     try {
-      // Create client with proper configuration
+      const clientConfig = process.env.REDIS_URL
+        ? {
+            url: process.env.REDIS_URL,
+            socket: {
+              connectTimeout: 10000,
+            },
+          }
+        : {
+            username: process.env.REDIS_USERNAME,
+            password: process.env.REDIS_PASSWORD,
+            socket: {
+              host: process.env.REDIS_HOST || "localhost",
+              port: parseInt(process.env.REDIS_PORT) || 6379,
+              connectTimeout: 10000,
+            },
+          };
+
       const client = createClient({
-        username: process.env.REDIS_USERNAME,
-        password: process.env.REDIS_PASSWORD,
-        socket: {
-          host: process.env.REDIS_HOST || "localhost",
-          port: parseInt(process.env.REDIS_PORT) || 6379,
-          connectTimeout: 10000, // 10 seconds
-          lazyConnect: true, // Don't auto-connect
-        },
-        // Add retry strategy
+        ...clientConfig,
         retry_unfulfilled_commands: true,
       });
 

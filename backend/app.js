@@ -5,9 +5,18 @@ import errorHandlerMiddleware from "./middlewares/errorHandlerMiddleware.js";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import apiRouter from "./routes/api.js";
+import path from "path";
+import { fileURLToPath } from "url";
 
 // Load environment variables
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const localUploadDir = path.resolve(
+  __dirname,
+  process.env.LOCAL_UPLOAD_DIR || "uploads"
+);
 
 const app = express();
 app.set("trust proxy", true);
@@ -77,6 +86,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
+app.use("/uploads", express.static(localUploadDir));
 app.use("/api", apiRouter);
 
 // Error handler
@@ -86,6 +96,6 @@ app.use(errorHandlerMiddleware);
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
-  console.log(`File uploads will be stored in Supabase storage`);
+  console.log(`File uploads storage driver: ${process.env.STORAGE_DRIVER || "local"}`);
   console.log("CORS enabled for origins:", allowedOrigins);
 });

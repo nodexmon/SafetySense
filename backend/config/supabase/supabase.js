@@ -3,20 +3,19 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+const storageDriver = process.env.STORAGE_DRIVER || "local";
 const supabaseUrl = process.env.SB_PROJECT_URL;
 const supabaseKey = process.env.SB_SERVICE_KEY;
 
-console.log("=== Supabase Configuration ===");
-console.log("URL:", supabaseUrl ? "Loaded" : "MISSING");
-console.log("Key:", supabaseKey ? "Loaded" : "MISSING");
+let supabase = null;
 
-if (!supabaseUrl || !supabaseKey) {
+if (supabaseUrl && supabaseKey) {
+  supabase = createClient(supabaseUrl, supabaseKey);
+  console.log("Supabase client initialized successfully");
+} else if (storageDriver === "supabase") {
   throw new Error("Supabase credentials missing in .env file");
+} else {
+  console.log("Supabase credentials missing; using local file storage");
 }
-
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-console.log("Supabase client initialized successfully");
-console.log("==============================");
 
 export default supabase;
